@@ -14,7 +14,8 @@ import {
   CloudDownloadOutlined,
   CodeOutlined,
   UserOutlined,
-  TagsOutlined
+  TagsOutlined,
+  DeleteOutlined
 } from "@ant-design/icons-vue";
 import {
   openInstance,
@@ -31,7 +32,8 @@ import { parseTimestamp } from "@/tools/time";
 import { arrayFilter } from "@/tools/array";
 import { useLayoutContainerStore } from "@/stores/useLayoutContainerStore";
 import { reportErrorMsg } from "@/tools/validator";
-import { openInstanceTagsEditor } from "@/components/fc/index";
+import { openInstanceTagsEditor, useDeleteInstanceDialog } from "@/components/fc/index";
+import _ from "lodash";
 
 const props = defineProps<{
   card: LayoutCard;
@@ -39,7 +41,7 @@ const props = defineProps<{
   targetDaemonId?: string;
 }>();
 
-const emits = defineEmits(["refrshList"]);
+const emits = defineEmits(["refreshList"]);
 
 const { containerState } = useLayoutContainerStore();
 const { getMetaOrRouteValue } = useLayoutCardTools(props.card);
@@ -69,7 +71,7 @@ const { isLoading: updateLoading, execute: executeUpdate } = updateInstance();
 
 const refreshList = () => {
   setTimeout(() => {
-    emits("refrshList");
+    emits("refreshList");
   }, 500);
 };
 
@@ -194,7 +196,8 @@ const instanceOperations = computed(() =>
       },
       loading: killLoading.value,
       disabled: containerState.isDesignMode,
-      danger: true
+      danger: true,
+      condition: () => !isStopped.value
     },
     {
       area: true
@@ -206,8 +209,8 @@ const instanceOperations = computed(() =>
         event.stopPropagation();
         if (instanceId && daemonId) {
           const tags = instanceInfo.value?.config.tag || [];
-          await openInstanceTagsEditor(instanceId, daemonId, tags);
-          refreshList();
+          const newTags = await openInstanceTagsEditor(instanceId, daemonId, tags);
+          if (!_.isEqual(newTags, tags)) refreshList();
         }
       },
       disabled: containerState.isDesignMode
@@ -225,6 +228,22 @@ const instanceOperations = computed(() =>
           }
         });
       },
+      disabled: containerState.isDesignMode
+    },
+    {
+      title: t("TXT_CODE_a0e19f38"),
+      icon: DeleteOutlined,
+      click: async (event: MouseEvent) => {
+        event.stopPropagation();
+        const deleteInstanceResult = await useDeleteInstanceDialog(
+          instanceId || "",
+          daemonId || ""
+        );
+        if (!deleteInstanceResult) return;
+        message.success(t("TXT_CODE_f486dbb4"));
+        refreshList();
+      },
+      danger: true,
       disabled: containerState.isDesignMode
     }
   ])

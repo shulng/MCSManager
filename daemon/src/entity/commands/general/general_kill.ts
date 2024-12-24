@@ -1,3 +1,4 @@
+import { $t } from "../../../i18n";
 import logger from "../../../service/log";
 import Instance from "../../instance/instance";
 import InstanceCommand from "../base/command";
@@ -8,6 +9,12 @@ export default class GeneralKillCommand extends InstanceCommand {
   }
 
   async exec(instance: Instance) {
+    if (instance.status() === Instance.STATUS_STOP) return;
+
+    if (instance.startTimestamp && instance.startTimestamp + 6 * 1000 > Date.now()) {
+      return instance.failure(new Error($t("TXT_CODE_6259357c")));
+    }
+
     const task = instance?.asynchronousTask;
     if (task && task.stop) {
       task
@@ -17,9 +24,9 @@ export default class GeneralKillCommand extends InstanceCommand {
           logger.error(`Instance ${instance.config.nickname} asynchronousTask stop error:`, err);
         });
     }
+
     if (instance.process) {
       await instance.process.kill("SIGKILL");
     }
-    instance.setLock(false);
   }
 }

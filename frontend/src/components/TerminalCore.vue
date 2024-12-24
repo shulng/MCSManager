@@ -2,7 +2,7 @@
 import { onMounted, ref } from "vue";
 import { t } from "@/lang/i18n";
 import { CodeOutlined, DeleteOutlined, LoadingOutlined } from "@ant-design/icons-vue";
-import { useTerminal } from "../hooks/useTerminal";
+import { encodeConsoleColor, useTerminal } from "../hooks/useTerminal";
 import { getInstanceOutputLog } from "@/services/apis/instance";
 import { message } from "ant-design-vue";
 import connectErrorImage from "@/assets/daemon_connection_error.png";
@@ -29,7 +29,7 @@ const {
   clickHistoryItem
 } = useCommandHistory();
 
-const { execute, initTerminalWindow, sendCommand, events, isConnect, socketAddress } =
+const { execute, initTerminalWindow, sendCommand, state, events, isConnect, socketAddress } =
   useTerminal();
 
 const instanceId = props.instanceId;
@@ -60,12 +60,6 @@ const initTerminal = async () => {
   const dom = document.getElementById(terminalDomId);
   if (dom) {
     const term = initTerminalWindow(dom);
-    try {
-      const { value } = await getInstanceOutputLog().execute({
-        params: { uuid: instanceId || "", daemonId: daemonId || "" }
-      });
-      if (value) term.write(value);
-    } catch (error: any) {}
     return term;
   }
   throw new Error(t("TXT_CODE_42bcfe0c"));
@@ -81,6 +75,22 @@ events.on("stopped", () => {
 
 events.on("error", (error: Error) => {
   socketError.value = error;
+});
+
+events.once("detail", async () => {
+  try {
+    const { value } = await getInstanceOutputLog().execute({
+      params: { uuid: instanceId || "", daemonId: daemonId || "" }
+    });
+
+    if (value) {
+      if (state.value?.config?.terminalOption?.haveColor) {
+        term?.write(encodeConsoleColor(value));
+      } else {
+        term?.write(value);
+      }
+    }
+  } catch (error: any) {}
 });
 
 const clearTerminal = () => {
